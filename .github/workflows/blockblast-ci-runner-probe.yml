@@ -5,7 +5,6 @@ on:
     paths:
       - '.github/workflows/blockblast-ci-runner-probe.yml'
       - 'blockblast-ci/phase10-browser-exact.tar.gz.b64'
-      - 'blockblast-ci/browser-override/helpers.cjs'
 
 permissions:
   contents: read
@@ -29,15 +28,13 @@ jobs:
         run: |
           mkdir -p blockblast-ci/browser-exact
           base64 -d blockblast-ci/phase10-browser-exact.tar.gz.b64 > blockblast-ci/browser-exact/fixture.tar.gz
-          echo "a570f593689cf3dc3f9de3a7d0af25aa93aeaf62eed28acd50b756f34546fd02  blockblast-ci/browser-exact/fixture.tar.gz" | sha256sum -c -
+          echo "f46bad285b12a8333955093d77847bb842d5e79e8f6e04993abde963f75c9a74  blockblast-ci/browser-exact/fixture.tar.gz" | sha256sum -c -
           tar -xzf blockblast-ci/browser-exact/fixture.tar.gz -C blockblast-ci/browser-exact
-          echo "9f06482732a7fef109f7379bf81f8e6044261c150fdfd975413adb7507b08861  blockblast-ci/browser-override/helpers.cjs" | sha256sum -c -
-          cp blockblast-ci/browser-override/helpers.cjs blockblast-ci/browser-exact/tests/browser/helpers.cjs
           cd blockblast-ci/browser-exact
           cat > SHA256SUMS <<'EOF'
           6d9f17a8b90f9f83c83c1a536dc459a7670d6d7409b601eb5722ddd543763281  tests/browser/playwright.config.cjs
-          9f06482732a7fef109f7379bf81f8e6044261c150fdfd975413adb7507b08861  tests/browser/helpers.cjs
-          e76f6deecfcef8069cd4c96082bc7b61e02dc9a86a5e958e75fd70dd5448eb51  tests/browser/public-readonly.spec.cjs
+          d28d9971a8696b6e49a8e01fe0973b6f3d37d4482c20e67c57cc5e5316b47324  tests/browser/helpers.cjs
+          f2c6ef50340894aaf60577e6986bca4c295d2c3a6835dbdd3c9e4c3d4b340fcc  tests/browser/public-readonly.spec.cjs
           59fbdd2c0bac992f0f07c61069173e014157736202bc4bfc26755fa5bb63de19  tests/browser/pwa-readonly.spec.cjs
           EOF
           sed -i 's/^          //' SHA256SUMS
