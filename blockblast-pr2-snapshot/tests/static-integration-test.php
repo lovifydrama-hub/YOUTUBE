@@ -43,10 +43,10 @@ foreach ($requiredLiveConfigNeedles as $needle) {
 }
 
 $requiredLiveHealthNeedles = [
-    "if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET')",
+    'if (strtoupper((string) ($_SERVER[\'REQUEST_METHOD\'] ?? \'GET\')) !== \'GET\')',
     "'code' => 'E001'",
     "define('DB_NO_MAINTENANCE_RESPONSE', true);",
-    "catch (Throwable $e)",
+    'catch (Throwable $e)',
     "header('Retry-After: 60');",
 ];
 foreach ($requiredLiveHealthNeedles as $needle) {
