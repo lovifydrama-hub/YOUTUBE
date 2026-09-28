@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/blockblast-ci-runner-probe.yml'
-      - 'blockblast-ci/phase10-browser-exact.tar.gz.b64'
+      - 'blockblast-ci/browser-v4/**'
 
 permissions:
   contents: read
@@ -24,24 +24,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct exact Phase 10 browser suite
+      - name: Verify exact browser certification files
         run: |
-          mkdir -p blockblast-ci/browser-exact
-          base64 -d blockblast-ci/phase10-browser-exact.tar.gz.b64 > blockblast-ci/browser-exact/fixture.tar.gz
-          echo "f46bad285b12a8333955093d77847bb842d5e79e8f6e04993abde963f75c9a74  blockblast-ci/browser-exact/fixture.tar.gz" | sha256sum -c -
-          tar -xzf blockblast-ci/browser-exact/fixture.tar.gz -C blockblast-ci/browser-exact
-          cd blockblast-ci/browser-exact
-          cat > SHA256SUMS <<'EOF'
-          6d9f17a8b90f9f83c83c1a536dc459a7670d6d7409b601eb5722ddd543763281  tests/browser/playwright.config.cjs
-          d28d9971a8696b6e49a8e01fe0973b6f3d37d4482c20e67c57cc5e5316b47324  tests/browser/helpers.cjs
-          f2c6ef50340894aaf60577e6986bca4c295d2c3a6835dbdd3c9e4c3d4b340fcc  tests/browser/public-readonly.spec.cjs
-          59fbdd2c0bac992f0f07c61069173e014157736202bc4bfc26755fa5bb63de19  tests/browser/pwa-readonly.spec.cjs
+          cat > /tmp/blockblast-browser-SHA256SUMS <<'EOF'
+          6d9f17a8b90f9f83c83c1a536dc459a7670d6d7409b601eb5722ddd543763281  blockblast-ci/browser-v4/playwright.config.cjs
+          d28d9971a8696b6e49a8e01fe0973b6f3d37d4482c20e67c57cc5e5316b47324  blockblast-ci/browser-v4/helpers.cjs
+          f2c6ef50340894aaf60577e6986bca4c295d2c3a6835dbdd3c9e4c3d4b340fcc  blockblast-ci/browser-v4/public-readonly.spec.cjs
+          59fbdd2c0bac992f0f07c61069173e014157736202bc4bfc26755fa5bb63de19  blockblast-ci/browser-v4/pwa-readonly.spec.cjs
           EOF
-          sed -i 's/^          //' SHA256SUMS
-          sha256sum -c SHA256SUMS
+          sed -i 's/^          //' /tmp/blockblast-browser-SHA256SUMS
+          sha256sum -c /tmp/blockblast-browser-SHA256SUMS
 
       - name: Install pinned Playwright test runner
         run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @playwright/test@1.63.0
 
-      - name: Run exact read-only and PWA matrix
-        run: npx playwright test -c blockblast-ci/browser-exact/tests/browser/playwright.config.cjs --grep '@readonly|@pwa'
+      - name: Run read-only and PWA matrix
+        run: npx playwright test -c blockblast-ci/browser-v4/playwright.config.cjs --grep '@readonly|@pwa'
