@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/blockblast-live-probes.yml'
-      - 'blockblast-ci/phase10-live-probes-exact.tar.gz.b64'
+      - 'blockblast-ci/live-exact/**'
 
 permissions:
   contents: read
@@ -25,12 +25,8 @@ jobs:
           extensions: curl
           coverage: none
 
-      - name: Reconstruct exact Phase 10 live probes
+      - name: Verify exact Phase 10 live probes
         run: |
-          mkdir -p blockblast-ci/live-exact
-          base64 -d blockblast-ci/phase10-live-probes-exact.tar.gz.b64 > blockblast-ci/live-exact/fixture.tar.gz
-          echo "5e4b8c1b7391d837d44d7a69dc61e282ec4b1b92912aeb41e65cbcf5869952ee  blockblast-ci/live-exact/fixture.tar.gz" | sha256sum -c -
-          tar -xzf blockblast-ci/live-exact/fixture.tar.gz -C blockblast-ci/live-exact
           cd blockblast-ci/live-exact
           cat > SHA256SUMS <<'EOF'
           da45fcf9eb7d02509a2ea79f80e05939380e5a3fca920619df72b03e1bf1e4b3  tools/release/seo-indexability-baseline.json
