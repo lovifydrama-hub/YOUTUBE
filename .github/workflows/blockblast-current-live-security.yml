@@ -1,0 +1,23 @@
+name: BlockBlast current-live security observation
+
+on:
+  push:
+    branches:
+      - ci/blockblast-phase10-runner-probe
+    paths:
+      - 'blockblast-live-security/**'
+      - '.github/workflows/blockblast-current-live-security.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  current-live-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout CI sandbox
+        uses: actions/checkout@v4
+      - name: Read-only live security probe
+        run: bash blockblast-live-security/current-live-security-observe.sh
