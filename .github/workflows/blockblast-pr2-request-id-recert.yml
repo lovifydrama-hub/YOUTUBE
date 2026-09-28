@@ -1,0 +1,63 @@
+name: BlockBlast PR2 request-id exact snapshot recert
+
+on:
+  push:
+    branches:
+      - ci/blockblast-phase10-runner-probe
+    paths:
+      - 'blockblast-pr2-snapshot/**'
+      - '.github/workflows/blockblast-pr2-request-id-recert.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  request-id-recert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout CI sandbox
+        uses: actions/checkout@v4
+
+      - name: Runtime versions
+        run: |
+          set -euo pipefail
+          php -v
+          curl --version | head -n 1
+
+      - name: Exact PR2 blob provenance gate
+        working-directory: blockblast-pr2-snapshot
+        run: |
+          set -euo pipefail
+          check_blob() {
+            local path="$1"
+            local expected="$2"
+            local actual
+            actual="$(git hash-object "$path")"
+            echo "$path => $actual"
+            test "$actual" = "$expected"
+          }
+          check_blob includes/request-context.php 081cb705106178217fc9b184efae3300fd28b5b4
+          check_blob config/config.php 4378cabf04d4f6e3f67c70601b3cb583e54baa9b
+          check_blob api/health.php 75ef86233fea4ea126fdd192df3dc31fe2d6e0a0
+          echo "PASS exact blob provenance"
+
+      - name: PHP syntax gate on exact snapshot
+        working-directory: blockblast-pr2-snapshot
+        run: |
+          set -euo pipefail
+          php -l includes/request-context.php
+          php -l config/config.php
+          php -l api/health.php
+          php -l tests/request-id-router.php
+          php -l tests/static-integration-test.php
+          echo "PASS PHP syntax"
+
+      - name: Static integration ordering gate
+        working-directory: blockblast-pr2-snapshot
+        run: php tests/static-integration-test.php
+
+      - name: HTTP request-context behavior gate
+        working-directory: blockblast-pr2-snapshot
+        run: bash tests/request-id-http-test.sh
