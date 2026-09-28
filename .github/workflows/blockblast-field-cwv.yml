@@ -1,0 +1,51 @@
+name: BlockBlast Field CWV Probe
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blockblast-field-cwv.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  field-cwv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Query PageSpeed Insights field data
+        run: |
+          set -euo pipefail
+          url='https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fblockblast-unblocked.io%2F&strategy=mobile&category=performance'
+          code="$(curl -sS -o /tmp/psi.json -w '%{http_code}' "$url" || true)"
+          echo "psi_http_status=$code"
+          python3 - <<'PY'
+          import json, sys
+          data=json.load(open('/tmp/psi.json'))
+          if 'error' in data:
+              print('psi_error=' + str(data['error'].get('message','unknown')))
+              print(json.dumps(data['error'], indent=2)[:4000])
+              sys.exit(2)
+
+          def dump(label, obj):
+              metrics=(obj or {}).get('metrics') or {}
+              overall=(obj or {}).get('overall_category')
+              print(f'{label}_overall={overall}')
+              wanted=['LARGEST_CONTENTFUL_PAINT_MS','INTERACTION_TO_NEXT_PAINT','CUMULATIVE_LAYOUT_SHIFT_SCORE','FIRST_CONTENTFUL_PAINT_MS','EXPERIMENTAL_TIME_TO_FIRST_BYTE']
+              found=0
+              for k in wanted:
+                  if k in metrics:
+                      found += 1
+                      m=metrics[k]
+                      print(f'{label}_{k}_category={m.get("category")}')
+                      if 'percentile' in m:
+                          print(f'{label}_{k}_p75={m.get("percentile")}')
+              return found
+
+          page=dump('page', data.get('loadingExperience'))
+          origin=dump('origin', data.get('originLoadingExperience'))
+          if page==0 and origin==0:
+              print('field_data_state=NO_DATA')
+              sys.exit(3)
+          print('field_data_state=AVAILABLE')
+          PY
