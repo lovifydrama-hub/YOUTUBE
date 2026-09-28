@@ -1,0 +1,43 @@
+name: BlockBlast Visual Baseline Candidates
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blockblast-visual-baseline-candidates.yml'
+      - 'blockblast-ci/visual-baseline/**'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned Playwright package
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.63.0
+
+      - name: Capture 24 visual baseline candidates
+        run: node blockblast-ci/visual-baseline/visual-capture.mjs
+
+      - name: Verify candidate count
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const m = JSON.parse(await readFile('blockblast-ci/visual-baseline/output/manifest.json','utf8'));
+          if (m.screenshot_count !== 24 || m.approval_state !== 'CANDIDATE_NOT_APPROVED') process.exit(1);
+          console.log(JSON.stringify({visual_candidates:'PASS',screenshots:m.screenshot_count,approval_state:m.approval_state}));
+          NODE
+
+      - name: Upload visual candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockblast-visual-baseline-candidates
+          path: blockblast-ci/visual-baseline/output/
+          if-no-files-found: error
+          retention-days: 14
