@@ -1,65 +1,151 @@
-name: BlockBlast Phase 10 SQLite Closure
+name: BlockBlast DB Contract Closure
 
 on:
   pull_request:
     paths:
       - '.github/workflows/blockblast-ci-runner-probe.yml'
-      - 'blockblast-ci/phase10-sqlite-exact.tar.gz.b64'
+      - 'blockblast-ci/phase10-db-exact.tar.gz.b64'
 
 permissions:
   contents: read
 
 jobs:
-  sqlite-closure:
-    name: PHP ${{ matrix.php }} SQLite closure
+  mysql-contract:
+    name: MySQL 8 contract
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['8.2', '8.4']
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: pdo_sqlite, sqlite3
-          coverage: none
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
         env:
-          fail-fast: true
-
-      - name: Verify SQLite extensions
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: blockblast_ci_mysql
+          MYSQL_USER: blockblast
+          MYSQL_PASSWORD: blockblast
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Reconstruct exact DB fixture
         run: |
-          php -r 'if (!extension_loaded("pdo_sqlite") || !extension_loaded("sqlite3")) { fwrite(STDERR, "SQLite extension missing\n"); exit(1); } echo "pdo_sqlite+sqlite3 loaded\n";'
-
-      - name: Reconstruct exact Phase 10 fixture
-        run: |
-          mkdir -p blockblast-ci/exact
-          base64 -d blockblast-ci/phase10-sqlite-exact.tar.gz.b64 > blockblast-ci/exact/fixture.tar.gz
-          echo "c09c5b0d0c2913bff92889764442e0be8708d1dd1133f26716f5ca973907432f  blockblast-ci/exact/fixture.tar.gz" | sha256sum -c -
-          tar -xzf blockblast-ci/exact/fixture.tar.gz -C blockblast-ci/exact
-          cd blockblast-ci/exact
+          mkdir -p blockblast-ci/db-exact
+          base64 -d blockblast-ci/phase10-db-exact.tar.gz.b64 > blockblast-ci/db-exact/fixture.tar.gz
+          echo "e553bfc0017e8938ee95e145902b8ceb71cf8e948284077ed800a69d5c443926  blockblast-ci/db-exact/fixture.tar.gz" | sha256sum -c -
+          tar -xzf blockblast-ci/db-exact/fixture.tar.gz -C blockblast-ci/db-exact
+          cd blockblast-ci/db-exact
           cat > SHA256SUMS <<'EOF'
-          30f8adab20c9af8d41ef1a81b5a20de461ea68f3f87efa8d1c705d532cf5cf98  includes/admin-session-revocation.php
-          e70cecc38dc0f007e25acf1dfc1d73ca34fbacd629a9ae3d853c6e642bc628c4  includes/page-functions.php
-          9e615a09e9f8700f9bf4d78224e69f2ceeff87ca6ee6d1a1316321fdaeccb553  tests/auth-session-revocation-regression.php
-          d3d9b931a22d71fd6506c6b3c684a4bf6ea00fdde613088405c04f1db22cd73b  tests/comment-game-scope-test.php
-          8fe92a54c2cb3c21b47ab7d6a770eeeeddda999b88cb6d0651a639f883a15ce3  tests/content-boundary-regression.php
+          584c9a69e91d01b50e9d4890e2425c5108afadb58f8a6b9ea5aa11860652de0c  config/database.php
+          4c3a3a6745e1a60084da47afc5af0f9c8749d70a2766649a2b81b84de79da781  tests/mysql-production-contract-test.php
+          9f036a489a48f253eedb915a139773ba1d8f12f7a75282084b1fa89b5ada7ad8  tests/mysql-backup-restore-drill.sh
           EOF
           sed -i 's/^          //' SHA256SUMS
           sha256sum -c SHA256SUMS
+      - name: Production DB contract on MySQL 8
+        working-directory: blockblast-ci/db-exact
+        env:
+          RUN_DB_CONTRACT_TEST: '1'
+          DB_HOST: 127.0.0.1
+          DB_NAME: blockblast_ci_mysql
+          DB_USER: blockblast
+          DB_PASS: blockblast
+        run: php tests/mysql-production-contract-test.php
 
-      - name: Syntax check exact fixture
+  mysql-backup-restore:
+    name: MySQL 8 backup restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct exact DB fixture
         run: |
-          find blockblast-ci/exact/includes blockblast-ci/exact/tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          mkdir -p blockblast-ci/db-exact
+          base64 -d blockblast-ci/phase10-db-exact.tar.gz.b64 > blockblast-ci/db-exact/fixture.tar.gz
+          echo "e553bfc0017e8938ee95e145902b8ceb71cf8e948284077ed800a69d5c443926  blockblast-ci/db-exact/fixture.tar.gz" | sha256sum -c -
+          tar -xzf blockblast-ci/db-exact/fixture.tar.gz -C blockblast-ci/db-exact
+          cd blockblast-ci/db-exact
+          echo "9f036a489a48f253eedb915a139773ba1d8f12f7a75282084b1fa89b5ada7ad8  tests/mysql-backup-restore-drill.sh" | sha256sum -c -
+      - name: Install MySQL client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y default-mysql-client
+      - name: Isolated backup restore drill
+        working-directory: blockblast-ci/db-exact
+        env:
+          RUN_BACKUP_RESTORE_DRILL: '1'
+          DB_HOST: 127.0.0.1
+          DB_ADMIN_USER: root
+          DB_ADMIN_PASS: root
+          DB_SOURCE_NAME: blockblast_ci_restore_src
+          DB_RESTORE_NAME: blockblast_ci_restore_dst
+        run: bash tests/mysql-backup-restore-drill.sh
 
-      - name: Run previously blocked regressions
-        working-directory: blockblast-ci/exact
+  mariadb-contract:
+    name: MariaDB 10.11 contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: blockblast_ci_mariadb
+          MARIADB_USER: blockblast
+          MARIADB_PASSWORD: blockblast
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Reconstruct exact DB fixture
         run: |
-          php tests/auth-session-revocation-regression.php
-          php tests/comment-game-scope-test.php
-          php tests/content-boundary-regression.php
+          mkdir -p blockblast-ci/db-exact
+          base64 -d blockblast-ci/phase10-db-exact.tar.gz.b64 > blockblast-ci/db-exact/fixture.tar.gz
+          echo "e553bfc0017e8938ee95e145902b8ceb71cf8e948284077ed800a69d5c443926  blockblast-ci/db-exact/fixture.tar.gz" | sha256sum -c -
+          tar -xzf blockblast-ci/db-exact/fixture.tar.gz -C blockblast-ci/db-exact
+          cd blockblast-ci/db-exact
+          cat > SHA256SUMS <<'EOF'
+          584c9a69e91d01b50e9d4890e2425c5108afadb58f8a6b9ea5aa11860652de0c  config/database.php
+          4c3a3a6745e1a60084da47afc5af0f9c8749d70a2766649a2b81b84de79da781  tests/mysql-production-contract-test.php
+          EOF
+          sed -i 's/^          //' SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - name: Production DB contract on MariaDB 10.11
+        working-directory: blockblast-ci/db-exact
+        env:
+          RUN_DB_CONTRACT_TEST: '1'
+          DB_HOST: 127.0.0.1
+          DB_NAME: blockblast_ci_mariadb
+          DB_USER: blockblast
+          DB_PASS: blockblast
+        run: php tests/mysql-production-contract-test.php
