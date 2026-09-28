@@ -1,0 +1,13 @@
+name: BlockBlast CI Runner Probe
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blockblast-ci-runner-probe.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "runner-ok"
