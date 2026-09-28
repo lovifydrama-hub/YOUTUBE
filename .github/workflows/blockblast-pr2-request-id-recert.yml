@@ -50,7 +50,7 @@ jobs:
             test "$actual" = "$expected"
           }
           check_blob includes/request-context.php 081cb705106178217fc9b184efae3300fd28b5b4
-          check_blob config/config.php dc38831108ea883033dc1ea52427611fa9b33611
+          check_blob config/config.php 882d4b249a8eb3a5151458687c24e2d2bbef9b9b
           check_blob api/health.php 502dfd03c7a117821b1c25cb1afeed90d0b82127
           echo "PASS exact blob provenance"
 
