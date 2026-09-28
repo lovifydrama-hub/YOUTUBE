@@ -1,0 +1,23 @@
+name: BlockBlast Current Production Request ID Recert
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blockblast-request-id-recert.yml'
+      - 'blockblast-ci/current-prod-request-id/**'
+
+permissions:
+  contents: read
+
+jobs:
+  request-id-recert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Verify exact current-production request correlation patch
+        run: bash blockblast-ci/current-prod-request-id/verify.sh
