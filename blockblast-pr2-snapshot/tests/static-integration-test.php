@@ -28,6 +28,34 @@ foreach (['HTTP_X_REQUEST_ID', 'HTTP_X_CORRELATION_ID', 'HTTP_X_REQUESTID'] as $
     }
 }
 
+$requiredLiveConfigNeedles = [
+    "$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);",
+    "$isAdmin = preg_match('#^/(?:antihacker|admin)(?:/|$)#i', $requestPath) === 1;",
+    "$isApi = preg_match('#^/api(?:/|$)#i', $requestPath) === 1;",
+    "$rawSlug = $_GET['slug'] ?? '';",
+    "$slug = is_string($rawSlug) ? $rawSlug : '';",
+];
+foreach ($requiredLiveConfigNeedles as $needle) {
+    if (strpos($cfg, $needle) === false) {
+        fwrite(STDERR, "FAIL live config hotfix invariant missing: {$needle}\n");
+        exit(1);
+    }
+}
+
+$requiredLiveHealthNeedles = [
+    "if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET')",
+    "'code' => 'E001'",
+    "define('DB_NO_MAINTENANCE_RESPONSE', true);",
+    "catch (Throwable $e)",
+    "header('Retry-After: 60');",
+];
+foreach ($requiredLiveHealthNeedles as $needle) {
+    if (strpos($health, $needle) === false) {
+        fwrite(STDERR, "FAIL live health hotfix invariant missing: {$needle}\n");
+        exit(1);
+    }
+}
+
 $requestContextRequire = "require_once dirname(__DIR__) . '/includes/request-context.php';";
 $errorHandlerRequire = "require_once __DIR__ . '/error-handler.php';";
 $reqPos = strpos($cfg, $requestContextRequire);
@@ -41,8 +69,19 @@ $configRequire = "require_once dirname(__DIR__) . '/config/config.php';";
 $forceCallNeedle = "rbc_emit_request_id_header(true);";
 $configBootstrap = strpos($health, $configRequire);
 $forceCall = strpos($health, $forceCallNeedle);
-if ($configBootstrap === false || $forceCall === false || $forceCall <= $configBootstrap) {
-    fwrite(STDERR, "FAIL health integration: force request ID must occur after exact config bootstrap require\n");
+$functionsRequire = "require_once dirname(__DIR__) . '/includes/functions.php';";
+$functionsBootstrap = strpos($health, $functionsRequire);
+$dbGuard = strpos($health, "define('DB_NO_MAINTENANCE_RESPONSE', true);");
+if (
+    $configBootstrap === false
+    || $forceCall === false
+    || $functionsBootstrap === false
+    || $dbGuard === false
+    || $forceCall <= $configBootstrap
+    || $forceCall >= $functionsBootstrap
+    || $dbGuard >= $functionsBootstrap
+) {
+    fwrite(STDERR, "FAIL health integration ordering for request-id and live DB-outage contract\n");
     exit(1);
 }
 
