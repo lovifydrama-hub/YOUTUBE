@@ -29,11 +29,11 @@ foreach (['HTTP_X_REQUEST_ID', 'HTTP_X_CORRELATION_ID', 'HTTP_X_REQUESTID'] as $
 }
 
 $requiredLiveConfigNeedles = [
-    "$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);",
-    "$isAdmin = preg_match('#^/(?:antihacker|admin)(?:/|$)#i', $requestPath) === 1;",
-    "$isApi = preg_match('#^/api(?:/|$)#i', $requestPath) === 1;",
-    "$rawSlug = $_GET['slug'] ?? '';",
-    "$slug = is_string($rawSlug) ? $rawSlug : '';",
+    '$requestPath = parse_url((string) ($_SERVER[\'REQUEST_URI\'] ?? \'/\'), PHP_URL_PATH);',
+    '$isAdmin = preg_match(\'#^/(?:antihacker|admin)(?:/|$)#i\', $requestPath) === 1;',
+    '$isApi = preg_match(\'#^/api(?:/|$)#i\', $requestPath) === 1;',
+    '$rawSlug = $_GET[\'slug\'] ?? \'\';',
+    '$slug = is_string($rawSlug) ? $rawSlug : \'\';',
 ];
 foreach ($requiredLiveConfigNeedles as $needle) {
     if (strpos($cfg, $needle) === false) {
