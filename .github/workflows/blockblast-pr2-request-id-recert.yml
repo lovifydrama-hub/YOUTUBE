@@ -15,10 +15,21 @@ permissions:
 jobs:
   request-id-recert:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.2', '8.3', '8.4']
+
     steps:
       - name: Checkout CI sandbox
         uses: actions/checkout@v4
+
+      - name: Set up PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '${{ matrix.php-version }}'
+          coverage: none
 
       - name: Runtime versions
         run: |
@@ -54,7 +65,7 @@ jobs:
           php -l tests/static-integration-test.php
           echo "PASS PHP syntax"
 
-      - name: Static integration ordering gate
+      - name: Static security and integration invariants
         working-directory: blockblast-pr2-snapshot
         run: php tests/static-integration-test.php
 
