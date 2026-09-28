@@ -1,0 +1,66 @@
+name: BlockBlast Live Probe Closure
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blockblast-live-probes.yml'
+      - 'blockblast-ci/phase10-live-probes-exact.tar.gz.b64'
+
+permissions:
+  contents: read
+
+jobs:
+  live-probes:
+    name: Security Reliability SEO live probes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: curl
+          coverage: none
+
+      - name: Reconstruct exact Phase 10 live probes
+        run: |
+          mkdir -p blockblast-ci/live-exact
+          base64 -d blockblast-ci/phase10-live-probes-exact.tar.gz.b64 > blockblast-ci/live-exact/fixture.tar.gz
+          echo "5e4b8c1b7391d837d44d7a69dc61e282ec4b1b92912aeb41e65cbcf5869952ee  blockblast-ci/live-exact/fixture.tar.gz" | sha256sum -c -
+          tar -xzf blockblast-ci/live-exact/fixture.tar.gz -C blockblast-ci/live-exact
+          cd blockblast-ci/live-exact
+          cat > SHA256SUMS <<'EOF'
+          da45fcf9eb7d02509a2ea79f80e05939380e5a3fca920619df72b03e1bf1e4b3  tools/release/seo-indexability-baseline.json
+          2f4d7278025464cc5802c7deae0b2f43885633f9b1bf09a55c7fdf6b1a2d221d  tools/release/seo-live-probe.php
+          52985902a8e159dacc81c1b57c1fa7ec7de9237e5e7d4ade9b37847724774397  tools/release/security-surface-probe.php
+          70ce204af42335985e324ef576fdb0e98a833037f5e14837cc9b51cde23aff37  tools/release/reliability-surface-probe.php
+          EOF
+          sed -i 's/^          //' SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Security surface probe
+        working-directory: blockblast-ci/live-exact
+        run: php tools/release/security-surface-probe.php https://blockblast-unblocked.io
+
+      - name: Reliability surface probe
+        working-directory: blockblast-ci/live-exact
+        run: php tools/release/reliability-surface-probe.php https://blockblast-unblocked.io
+
+      - name: Technical SEO live probe
+        working-directory: blockblast-ci/live-exact
+        run: php tools/release/seo-live-probe.php https://blockblast-unblocked.io
+
+      - name: TLS and edge surface evidence
+        run: |
+          set -euo pipefail
+          echo "=== DNS ==="
+          getent ahosts blockblast-unblocked.io | head -20 || true
+          echo "=== HTTPS HEADERS ==="
+          curl --fail --silent --show-error --location --max-redirs 3 --connect-timeout 10 --max-time 30 -I https://blockblast-unblocked.io/
+          echo "=== TLS 1.2 handshake ==="
+          echo | openssl s_client -connect blockblast-unblocked.io:443 -servername blockblast-unblocked.io -tls1_2 -verify_return_error 2>&1 | grep -E 'Protocol|Cipher|Verify return code|subject=|issuer='
+          echo "=== TLS 1.3 handshake ==="
+          echo | openssl s_client -connect blockblast-unblocked.io:443 -servername blockblast-unblocked.io -tls1_3 -verify_return_error 2>&1 | grep -E 'Protocol|Cipher|Verify return code|subject=|issuer='
