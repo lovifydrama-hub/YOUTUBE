@@ -8,17 +8,21 @@ if ($cfg === false || $health === false) {
     exit(1);
 }
 
-$reqPos = strpos($cfg, "includes/request-context.php");
-$errPos = strpos($cfg, "error-handler.php");
+$requestContextRequire = "require_once dirname(__DIR__) . '/includes/request-context.php';";
+$errorHandlerRequire = "require_once __DIR__ . '/error-handler.php';";
+$reqPos = strpos($cfg, $requestContextRequire);
+$errPos = strpos($cfg, $errorHandlerRequire);
 if ($reqPos === false || $errPos === false || $reqPos >= $errPos) {
-    fwrite(STDERR, "FAIL config integration: request-context must load before error-handler\n");
+    fwrite(STDERR, "FAIL config integration: exact request-context require must load before exact error-handler require\n");
     exit(1);
 }
 
-$configBootstrap = strpos($health, "config/config.php");
-$forceCall = strpos($health, "rbc_emit_request_id_header(true)");
+$configRequire = "require_once dirname(__DIR__) . '/config/config.php';";
+$forceCallNeedle = "rbc_emit_request_id_header(true);";
+$configBootstrap = strpos($health, $configRequire);
+$forceCall = strpos($health, $forceCallNeedle);
 if ($configBootstrap === false || $forceCall === false || $forceCall <= $configBootstrap) {
-    fwrite(STDERR, "FAIL health integration: force request ID must occur after config bootstrap\n");
+    fwrite(STDERR, "FAIL health integration: force request ID must occur after exact config bootstrap require\n");
     exit(1);
 }
 
