@@ -18,25 +18,44 @@ header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
 
 // Only allow GET
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET') {
     http_response_code(405);
     header('Allow: GET');
-    echo json_encode(['error' => 'Method not allowed']);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Method not allowed',
+        'message' => 'Method not allowed',
+        'code' => 'E001',
+    ]);
     exit;
 }
 
-// Load dependencies
-require_once dirname(__DIR__) . '/config/config.php';
-if (function_exists('rbc_emit_request_id_header')) {
-    // Health is always a non-cacheable API surface. Force correlation even if
-    // an upstream rewrite/proxy shape makes route detection ambiguous.
-    rbc_emit_request_id_header(true);
+// Must be defined before functions.php, which loads the DB connection. This
+// keeps a local/remote DB outage inside the JSON 503 contract.
+if (!defined('DB_NO_MAINTENANCE_RESPONSE')) {
+    define('DB_NO_MAINTENANCE_RESPONSE', true);
 }
-require_once dirname(__DIR__) . '/includes/functions.php';
-require_once dirname(__DIR__) . '/includes/observability.php';
-require_once dirname(__DIR__) . '/includes/rate-limiter.php';
 
 $healthStart = microtime(true);
+
+// The shared functions bootstrap also loads the database connection. Guard
+// that dependency load here so an unavailable DB cannot escape as a global
+// maintenance body or an uncaught JSON 500.
+require_once dirname(__DIR__) . '/config/config.php';
+if (function_exists('rbc_emit_request_id_header')) {
+    rbc_emit_request_id_header(true);
+}
+try {
+    require_once dirname(__DIR__) . '/includes/functions.php';
+    require_once dirname(__DIR__) . '/includes/observability.php';
+    require_once dirname(__DIR__) . '/includes/rate-limiter.php';
+} catch (Throwable $e) {
+    error_log('[HEALTH] dependency bootstrap failed');
+    http_response_code(503);
+    header('Retry-After: 60');
+    echo json_encode(['status' => 'degraded']);
+    exit;
+}
 
 // Rate limiting (10 req/min)
 if (!checkAvailabilityRateLimit('health_check', 10, 60)) {
@@ -56,6 +75,9 @@ $wantDetail = isset($_GET['detail']) && $_GET['detail'] === '1';
 
 // Check database (always — core functionality)
 try {
+    if (!defined('DB_NO_MAINTENANCE_RESPONSE')) {
+        define('DB_NO_MAINTENANCE_RESPONSE', true);
+    }
     require_once dirname(__DIR__) . '/config/database.php';
     if (isset($pdo)) {
         $stmt = $pdo->query('SELECT 1');
