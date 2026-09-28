@@ -27,6 +27,9 @@ async function installReadOnlyGuard(page, baseURL) {
     const method = req.method().toUpperCase();
     const sameOrigin = url.origin === base.origin;
     if (sameOrigin && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      // Cloudflare Browser Insights/RUM is edge-injected telemetry, not an
+      // application mutation. Keep certification read-only by aborting it, but
+      // do not misclassify this known telemetry endpoint as app state.
       if (method === 'POST' && url.pathname === '/cdn-cgi/rum') {
         return route.abort('blockedbyclient');
       }

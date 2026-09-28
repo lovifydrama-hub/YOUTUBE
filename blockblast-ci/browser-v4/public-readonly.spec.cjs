@@ -34,6 +34,9 @@ test.describe('@readonly public browser certification', () => {
   }
 
   test('@readonly desktop search autocomplete and results route', async ({ page }) => {
+    // Keep a guard-band above the <=1365px mobile/tablet breakpoint. WebKit can
+    // subtract scrollbar width from the layout viewport, so 1366px is too close
+    // to the breakpoint for a deterministic cross-browser desktop assertion.
     await page.setViewportSize({ width: 1440, height: 900 });
     await assertPublicPageInvariants(page, baseURL, '/');
     const input = page.locator('#search-input');
@@ -69,6 +72,7 @@ test.describe('@readonly public browser certification', () => {
     await page.setViewportSize({ width: 1366, height: 768 });
     await assertPublicPageInvariants(page, baseURL, '/');
 
+    // External provider documents are not part of the first-party certification.
     const origin = new URL(baseURL).origin;
     await page.route('**/*', async (route) => {
       const req = route.request();
