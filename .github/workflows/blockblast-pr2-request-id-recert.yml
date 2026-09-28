@@ -50,8 +50,8 @@ jobs:
             test "$actual" = "$expected"
           }
           check_blob includes/request-context.php 081cb705106178217fc9b184efae3300fd28b5b4
-          check_blob config/config.php 4378cabf04d4f6e3f67c70601b3cb583e54baa9b
-          check_blob api/health.php 75ef86233fea4ea126fdd192df3dc31fe2d6e0a0
+          check_blob config/config.php dc38831108ea883033dc1ea52427611fa9b33611
+          check_blob api/health.php 502dfd03c7a117821b1c25cb1afeed90d0b82127
           echo "PASS exact blob provenance"
 
       - name: PHP syntax gate on exact snapshot
