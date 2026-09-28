@@ -1,11 +1,31 @@
 <?php
 declare(strict_types=1);
 
+$requestContext = file_get_contents(__DIR__ . '/../includes/request-context.php');
 $cfg = file_get_contents(__DIR__ . '/../config/config.php');
 $health = file_get_contents(__DIR__ . '/../api/health.php');
-if ($cfg === false || $health === false) {
+if ($requestContext === false || $cfg === false || $health === false) {
     fwrite(STDERR, "FAIL unable to read exact snapshot files\n");
     exit(1);
+}
+
+$requiredRequestContextNeedles = [
+    "bin2hex(random_bytes(16))",
+    "header('X-Request-ID: ' . rbc_request_id())",
+    "preg_match('#^/(?:api|admin|antihacker)(?:/|$)#i'",
+];
+foreach ($requiredRequestContextNeedles as $needle) {
+    if (strpos($requestContext, $needle) === false) {
+        fwrite(STDERR, "FAIL request-context invariant missing: {$needle}\n");
+        exit(1);
+    }
+}
+
+foreach (['HTTP_X_REQUEST_ID', 'HTTP_X_CORRELATION_ID', 'HTTP_X_REQUESTID'] as $clientHeaderKey) {
+    if (stripos($requestContext, $clientHeaderKey) !== false) {
+        fwrite(STDERR, "FAIL request-context reads inbound correlation header: {$clientHeaderKey}\n");
+        exit(1);
+    }
 }
 
 $requestContextRequire = "require_once dirname(__DIR__) . '/includes/request-context.php';";
@@ -26,4 +46,4 @@ if ($configBootstrap === false || $forceCall === false || $forceCall <= $configB
     exit(1);
 }
 
-echo "PASS static integration ordering\n";
+echo "PASS static security and integration invariants\n";
