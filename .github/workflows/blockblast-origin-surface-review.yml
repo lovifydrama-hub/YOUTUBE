@@ -1,0 +1,74 @@
+name: BlockBlast Origin Surface Review
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/blockblast-origin-surface-review.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  origin-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare CDN and direct-origin read-only surface
+        env:
+          SITE_HOST: blockblast-unblocked.io
+          ORIGIN_IP: 92.112.189.2
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+
+          echo "=== CDN HTTPS ==="
+          cdn_code="$(curl -sS -o "$tmp/cdn.body" -D "$tmp/cdn.h" -w '%{http_code}' --connect-timeout 10 --max-time 30 "https://$SITE_HOST/")"
+          echo "cdn_status=$cdn_code"
+          grep -Ei '^(server|cf-ray|cf-cache-status|strict-transport-security|content-security-policy|x-content-type-options):' "$tmp/cdn.h" || true
+
+          echo "=== DIRECT ORIGIN HTTPS WITH SNI/HOST ==="
+          set +e
+          origin_code="$(curl -sS -o "$tmp/origin.body" -D "$tmp/origin.h" -w '%{http_code}' --resolve "$SITE_HOST:443:$ORIGIN_IP" --connect-timeout 10 --max-time 30 "https://$SITE_HOST/")"
+          origin_rc=$?
+          set -e
+          echo "origin_curl_rc=$origin_rc"
+          echo "origin_status=${origin_code:-000}"
+          if [ -f "$tmp/origin.h" ]; then
+            grep -Ei '^(server|cf-ray|cf-cache-status|strict-transport-security|content-security-policy|x-content-type-options|location):' "$tmp/origin.h" || true
+          fi
+
+          direct_exposed=false
+          same_content=false
+          if [ "$origin_rc" -eq 0 ] && [[ "${origin_code:-000}" =~ ^(200|301|302|303|307|308)$ ]]; then
+            direct_exposed=true
+            if [ "$origin_code" = "200" ] && [ "$cdn_code" = "200" ]; then
+              cdn_hash="$(sha256sum "$tmp/cdn.body" | awk '{print $1}')"
+              origin_hash="$(sha256sum "$tmp/origin.body" | awk '{print $1}')"
+              if [ "$cdn_hash" = "$origin_hash" ]; then same_content=true; fi
+            fi
+          fi
+
+          echo "direct_origin_reachable=$direct_exposed"
+          echo "same_body_hash=$same_content"
+
+          cat > blockblast-origin-surface-result.json <<EOF
+          {
+            "cdn_status": "$cdn_code",
+            "origin_curl_rc": $origin_rc,
+            "origin_status": "${origin_code:-000}",
+            "direct_origin_reachable": $direct_exposed,
+            "same_body_hash": $same_content
+          }
+          EOF
+          cat blockblast-origin-surface-result.json
+
+      - name: Upload origin surface evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: blockblast-origin-surface-review
+          path: blockblast-origin-surface-result.json
+          if-no-files-found: error
+          retention-days: 14
