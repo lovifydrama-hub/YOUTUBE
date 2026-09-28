@@ -41,7 +41,7 @@ if (is_file($_envPath)) {
 }
 unset($_envPaths, $_envPath, $lines, $_line, $_name, $_val);
 
-// Initialize server-controlled request correlation before error handling so API/Admin responses share one request id.
+// Load request correlation context before error handling so API/Admin failures can still be traced.
 require_once dirname(__DIR__) . '/includes/request-context.php';
 
 // Load global error & exception handler FIRST (catches everything after this point)
@@ -208,8 +208,11 @@ ini_set('session.cookie_lifetime', 86400 * 7);
 
 // Start Session safely — ONLY for admin and mutating API requests.
 // Safe GET APIs stay sessionless/cacheable and do not emit PHPSESSID.
-$isAdmin = strpos($_SERVER['REQUEST_URI'] ?? '', '/antihacker') !== false || strpos($_SERVER['REQUEST_URI'] ?? '', '/admin') !== false;
-$isApi = strpos($_SERVER['REQUEST_URI'] ?? '', '/api/') !== false;
+$requestPath = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
+$requestPath = is_string($requestPath) && $requestPath !== '' ? rawurldecode($requestPath) : '/';
+$requestPath = '/' . ltrim($requestPath, '/');
+$isAdmin = preg_match('#^/(?:antihacker|admin)(?:/|$)#i', $requestPath) === 1;
+$isApi = preg_match('#^/api(?:/|$)#i', $requestPath) === 1;
 $isApiMutation = $isApi && strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET';
 $isEmbed = preg_match('#(?:^|/)(?:embed\.php|[a-z0-9\-]+\.embed)(?:\?.*)?$#i', $_SERVER['REQUEST_URI'] ?? '') === 1;
 if (!function_exists('rbc_permissions_policy_request_path')) {
@@ -313,7 +316,8 @@ if (!function_exists('rbc_permissions_policy_request_path')) {
         }
 
         if (in_array('play.php', rbc_permissions_policy_script_names(), true)) {
-            $slug = (string) ($_GET['slug'] ?? '');
+            $rawSlug = $_GET['slug'] ?? '';
+            $slug = is_string($rawSlug) ? $rawSlug : '';
             return $slug !== ''
                 ? rbc_is_clean_game_slug_candidate_for_permissions_policy('/' . $slug)
                 : rbc_is_clean_game_slug_candidate_for_permissions_policy($path);
