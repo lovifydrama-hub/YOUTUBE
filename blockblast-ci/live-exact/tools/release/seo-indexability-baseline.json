@@ -1,0 +1,75 @@
+{
+  "site_origin": "https://blockblast-unblocked.io",
+  "sitemaps": [
+    "/sitemap.xml",
+    "/sitemap-games.xml",
+    "/sitemap-taxonomies.xml",
+    "/sitemap-pages.xml",
+    "/sitemap-editorial.xml"
+  ],
+  "routes": [
+    {
+      "name": "homepage",
+      "path": "/",
+      "status": 200,
+      "canonical": "/",
+      "robots_must_not_contain": ["noindex"]
+    },
+    {
+      "name": "homepage-query-canonicalization",
+      "path": "/?utm_source=seo-certification&utm_medium=test",
+      "status": 200,
+      "canonical": "/",
+      "robots_must_not_contain": ["noindex"]
+    },
+    {
+      "name": "search",
+      "path": "/search?q=block",
+      "status": 200,
+      "canonical": "/search",
+      "robots_must_contain": ["noindex", "follow"]
+    },
+    {
+      "name": "block-category",
+      "path": "/games/block",
+      "status": 200,
+      "canonical": "/games/block"
+    },
+    {
+      "name": "legacy-index-html",
+      "path": "/index.html",
+      "status": 301,
+      "location": "/"
+    },
+    {
+      "name": "legacy-blockblast",
+      "path": "/blockblast",
+      "status": 301,
+      "location": "/"
+    },
+    {
+      "name": "flagship-game-canonicalization",
+      "path": "/block-blast",
+      "status": 301,
+      "location": "/"
+    },
+    {
+      "name": "legacy-category",
+      "path": "/category/block",
+      "status": 301,
+      "location": "/games/block"
+    },
+    {
+      "name": "legacy-terms",
+      "path": "/terms",
+      "status": 301,
+      "location": "/terms-of-service"
+    },
+    {
+      "name": "embed-noindex",
+      "path": "/block-blast.embed",
+      "status": 200,
+      "robots_must_contain": ["noindex", "nofollow"]
+    }
+  ]
+}
