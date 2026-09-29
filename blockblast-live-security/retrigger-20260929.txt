@@ -1,0 +1,2 @@
+Read-only live security recert trigger for BlockBlast PR #2 current checkpoint.
+No production mutation. Triggered 2026-09-29.
